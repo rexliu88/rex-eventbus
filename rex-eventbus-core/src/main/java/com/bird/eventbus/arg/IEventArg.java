@@ -9,4 +9,5 @@ public interface IEventArg extends Serializable {
     default Boolean isLocal() {
         return false;
     }
+    String getTraceId();
 }
