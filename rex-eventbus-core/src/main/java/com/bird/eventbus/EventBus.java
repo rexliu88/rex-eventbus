@@ -74,7 +74,7 @@ public class EventBus {
             int successCount = 0;
             for (IHandler handler : handlers) {
                 try {
-                    handler.handleEvent(eventArg);
+                    handler.HandleEvent(eventArg);
                     successCount++;
                 } catch (Exception e) {
                     log.error("事件处理器[{}]处理失败", handler.getClass().getName(), e);
