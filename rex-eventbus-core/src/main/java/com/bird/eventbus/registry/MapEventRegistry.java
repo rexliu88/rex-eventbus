@@ -2,6 +2,7 @@ package com.bird.eventbus.registry;
 
 import cn.hutool.core.collection.CollectionUtil;
 import com.bird.eventbus.arg.IEventArg;
+import com.bird.eventbus.handler.AbstractHandler;
 import com.bird.eventbus.handler.EventHandler;
 import com.bird.eventbus.handler.IHandler;
 import lombok.extern.slf4j.Slf4j;
@@ -61,22 +62,24 @@ public class MapEventRegistry implements IEventRegistry, InitializingBean, Dispo
 
     @Override
     public void afterPropertiesSet() throws Exception {
-        Map<String, IHandler> beans = this.applicationContext.getBeansOfType(IHandler.class);
+        Map<String, AbstractHandler> beans = this.applicationContext.getBeansOfType(AbstractHandler.class);
         if (CollectionUtil.isNotEmpty(beans)) {
-            for (IHandler handler : beans.values()) {
+            for (AbstractHandler handler : beans.values()) {
                 Class<?> clazz = handler.getClass();
                 try {
-                    Method onEventMethod = clazz.getMethod("HandleEvent", IEventArg.class);
+                    Method onEventMethod = clazz.getMethod("onEvent", AbstractHandler.class);
                     Class<?>[] parameterTypes = onEventMethod.getParameterTypes();
                     if (parameterTypes.length != 1 || !IEventArg.class.isAssignableFrom(parameterTypes[0])) {
                         continue;
                     }
-                    // Class<?> eventArgClass = parameterTypes[0];
-                    Class<?> eventArgClass = (Class<?>)
+                    Class<?> eventArgClass11 = parameterTypes[0];
+                    log.info("eventArgClass2 class:{},name:{}", eventArgClass11, eventArgClass11.getName());
+                    Class<?> eventArgClass22 = (Class<?>)
                             (
                                     (ParameterizedType)
                                             parameterTypes[0].getGenericSuperclass()
                             ).getActualTypeArguments()[0];
+                    log.info("eventArgClass2 class:{},name:{}", eventArgClass22, eventArgClass22.getName());
                     // register(eventArgClass, handler);
                 } catch (Exception e) {
                     log.error("register subscribe error class:{},exception:{}", clazz, e);
@@ -92,6 +95,17 @@ public class MapEventRegistry implements IEventRegistry, InitializingBean, Dispo
                     }
                     Class<?> eventArgClass = parameterTypes[0];
                     register(eventArgClass, handler);
+
+                    if("onEvent".equals(method.getName())) {
+                        log.info("register subscribe class:{},method:{}", clazz, method.getName());
+                        Class<?>[] parameterTypes2 = method.getParameterTypes();
+                        if (parameterTypes2.length != 1 || !IEventArg.class.isAssignableFrom(parameterTypes2[0])) {
+                            continue;
+                        }
+                        Class<?> eventArgClass2 = parameterTypes[0];
+                        register(eventArgClass2, handler);
+                        log.info("eventArgClass2 class:{},name:{}", eventArgClass2, eventArgClass2.getName());
+                    }
                 }
             }
         }
