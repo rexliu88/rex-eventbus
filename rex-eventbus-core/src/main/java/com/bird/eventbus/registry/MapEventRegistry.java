@@ -75,7 +75,7 @@ public class MapEventRegistry implements IEventRegistry, InitializingBean, Dispo
                             continue;
                         }
                         Class<?> eventArgClass11 = parameterTypes2[0];
-                        if(eventArgClass11 != null && IEventArg.class.isAssignableFrom(eventArgClass11)) {
+                        if(eventArgClass11 != null && !IEventArg.class.equals(eventArgClass11)) {
                             register(eventArgClass11, handler);
                         }
                         log.info("eventArgClass11 class:{},name:{}", eventArgClass11, eventArgClass11.getName());

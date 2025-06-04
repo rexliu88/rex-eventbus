@@ -2,6 +2,7 @@ package com.bird.eventbus;
 
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.extra.spring.SpringUtil;
+import cn.hutool.json.JSONUtil;
 import com.bird.eventbus.arg.IEventArg;
 import com.bird.eventbus.handler.AbstractHandler;
 import com.bird.eventbus.handler.EventHandleStatusEnum;
@@ -67,10 +68,12 @@ public class EventBus {
             }
             IEventRegistry eventRegistry = SpringUtil.getBean(IEventRegistry.class);
             if (Objects.isNull(eventRegistry)) {
+                log.error("事件注册器:为空。" );
                 return EventHandleStatusEnum.FAIL;
             }
             Set<IHandler> handlers = eventRegistry.getEventArgHandlers(eventArg.getClass());
             if (CollectionUtil.isEmpty(handlers)) {
+                log.error("事件处理失败:死信，无处理器,参数类：{}，参数值：{}" , eventArg.getClass().getName(), JSONUtil.toJsonStr(eventArg));
                 return EventHandleStatusEnum.DEADEVENT;
             }
             int successCount = 0;
@@ -78,15 +81,19 @@ public class EventBus {
                 try {
                     handler.HandleEvent(eventArg);
                     successCount++;
+                    log.info("事件处理器[{}]处理成功,参数类：{}，参数值：{}" , eventArg.getClass().getName(), JSONUtil.toJsonStr(eventArg));
                 } catch (Exception e) {
                     log.error("事件处理器[{}]处理失败", handler.getClass().getName(), e);
                 }
             }
             if (successCount == handlers.size()) {
+                log.info("事件处理:全部成功,参数类：{}，参数值：{}" , eventArg.getClass().getName(), JSONUtil.toJsonStr(eventArg));
                 return EventHandleStatusEnum.SUCCESS;
             } else if (successCount > 0) {
+                log.warn("事件处理:部分成功,参数类：{}，参数值：{}" , eventArg.getClass().getName(), JSONUtil.toJsonStr(eventArg));
                 return EventHandleStatusEnum.PARTIAL_SUCCESS;
             } else {
+                log.error("事件处理:全部失败,参数类：{}，参数值：{}" , eventArg.getClass().getName(), JSONUtil.toJsonStr(eventArg));
                 return EventHandleStatusEnum.FAIL;
             }
         };
