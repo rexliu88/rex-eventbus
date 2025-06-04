@@ -124,7 +124,7 @@ public class EventBus {
         return futureTask;
     }
 
-    private static final ThreadPoolExecutor COMMON_POOL = (ThreadPoolExecutor) newCachedThreadPool();
+    private static final ThreadPoolExecutor COMMON_POOL = (ThreadPoolExecutor) Executors.newCachedThreadPool();
 
     public static ExecutorService newCachedThreadPool() {
         int corePoolSize = Runtime.getRuntime().availableProcessors();
