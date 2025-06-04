@@ -62,7 +62,7 @@ public class MapEventRegistry implements IEventRegistry,InitializingBean, Dispos
             for (IHandler handler : beans.values()) {
                 Class<?> clazz = handler.getClass();
                 try {
-                    Method onEventMethod = clazz.getMethod("HandleEvent");
+                    Method onEventMethod = clazz.getMethod("HandleEvent", IEventArg.class);
                     Class<?>[] parameterTypes = onEventMethod.getParameterTypes();
                     if (parameterTypes.length != 1 || !IEventArg.class.isAssignableFrom(parameterTypes[0])) {
                         continue;
