@@ -24,6 +24,7 @@ public class EventBus {
     public static <E extends IEventArg> void push(E eventArg) {
         log.info("事件发送开始。");
         FutureTask<EventHandleStatusEnum> task = asyncPush(eventArg);
+        log.info("事件处理开始。");
         EventHandleStatusEnum eventHandleStatusEnum = EventHandleStatusEnum.FAIL;
         if (task == null) {
             log.error("事件处理失败:执行任务为空");
@@ -51,7 +52,7 @@ public class EventBus {
         log.info("事件发送结束！");
     }
 
-    public static <E extends IEventArg> FutureTask asyncPush(E eventArg) {
+    public static <E extends IEventArg> FutureTask<EventHandleStatusEnum> asyncPush(E eventArg) {
         FutureTask<EventHandleStatusEnum> task = getFutureTask(eventArg);
         return task;
     }

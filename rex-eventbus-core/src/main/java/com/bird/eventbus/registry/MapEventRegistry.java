@@ -83,5 +83,6 @@ public class MapEventRegistry implements IEventRegistry, InitializingBean, Dispo
                 }
             }
         }
+        log.info("eventArgClassCount:{}", getAllEventArgClassCount());
     }
 }
