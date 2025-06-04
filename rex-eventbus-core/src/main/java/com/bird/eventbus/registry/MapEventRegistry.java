@@ -2,6 +2,7 @@ package com.bird.eventbus.registry;
 
 import cn.hutool.core.collection.CollectionUtil;
 import com.bird.eventbus.arg.IEventArg;
+import com.bird.eventbus.handler.EventHandler;
 import com.bird.eventbus.handler.IHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.DisposableBean;
@@ -9,7 +10,9 @@ import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
+
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -18,7 +21,7 @@ import java.util.concurrent.ConcurrentMap;
 
 @Slf4j
 @Component
-public class MapEventRegistry implements IEventRegistry,InitializingBean, DisposableBean {
+public class MapEventRegistry implements IEventRegistry, InitializingBean, DisposableBean {
     private final static ConcurrentMap<Class<?>, Set<IHandler>> EVENT_HANDLER_CONTAINER = new ConcurrentHashMap<>();
 
     @Override
@@ -32,7 +35,7 @@ public class MapEventRegistry implements IEventRegistry,InitializingBean, Dispos
 
     @Override
     public Set<IHandler> getEventArgHandlers(Class<?> eventArgClass) {
-        if(eventArgClass == null || !IEventArg.class.isAssignableFrom(eventArgClass)) {
+        if (eventArgClass == null || !IEventArg.class.isAssignableFrom(eventArgClass)) {
             return new HashSet<>();
         }
         return EVENT_HANDLER_CONTAINER.getOrDefault(eventArgClass, new HashSet<>());
@@ -55,9 +58,10 @@ public class MapEventRegistry implements IEventRegistry,InitializingBean, Dispos
 
     @Autowired
     private ApplicationContext applicationContext;
+
     @Override
     public void afterPropertiesSet() throws Exception {
-        Map<String, IHandler> beans =  this.applicationContext.getBeansOfType(IHandler.class);
+        Map<String, IHandler> beans = this.applicationContext.getBeansOfType(IHandler.class);
         if (CollectionUtil.isNotEmpty(beans)) {
             for (IHandler handler : beans.values()) {
                 Class<?> clazz = handler.getClass();
@@ -67,10 +71,27 @@ public class MapEventRegistry implements IEventRegistry,InitializingBean, Dispos
                     if (parameterTypes.length != 1 || !IEventArg.class.isAssignableFrom(parameterTypes[0])) {
                         continue;
                     }
-                    Class<?> eventArgClass = parameterTypes[0];
-                    register(eventArgClass, handler);
+                    // Class<?> eventArgClass = parameterTypes[0];
+                    Class<?> eventArgClass = (Class<?>)
+                            (
+                                    (ParameterizedType)
+                                            parameterTypes[0].getGenericSuperclass()
+                            ).getActualTypeArguments()[0];
+                    // register(eventArgClass, handler);
                 } catch (Exception e) {
                     log.error("register subscribe error class:{},exception:{}", clazz, e);
+                }
+                for (Method method : clazz.getDeclaredMethods()) {
+                    EventHandler eventAnnotation = method.getAnnotation(EventHandler.class);
+                    if (eventAnnotation == null) {
+                        continue;
+                    }
+                    Class<?>[] parameterTypes = method.getParameterTypes();
+                    if (parameterTypes.length != 1 || !IEventArg.class.isAssignableFrom(parameterTypes[0])) {
+                        continue;
+                    }
+                    Class<?> eventArgClass = parameterTypes[0];
+                    register(eventArgClass, handler);
                 }
             }
         }
