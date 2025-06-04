@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @NoArgsConstructor
@@ -91,27 +92,61 @@ public class EventBus {
 
         FutureTask<EventHandleStatusEnum> futureTask = new FutureTask<>(callable);
 
-        Map<String, ThreadPoolTaskExecutor> threadPoolTaskExecutorMap = SpringUtil.getBeansOfType(ThreadPoolTaskExecutor.class);
-        if (CollectionUtil.isEmpty(threadPoolTaskExecutorMap)) {
-            EventBus.COMMON_POOL.submit(futureTask);
-            return futureTask;
-        }
+        //Map<String, ThreadPoolTaskExecutor> threadPoolTaskExecutorMap = SpringUtil.getBeansOfType(ThreadPoolTaskExecutor.class);
+        //if (CollectionUtil.isEmpty(threadPoolTaskExecutorMap)) {
+        //    EventBus.COMMON_POOL.submit(futureTask);
+        //    return futureTask;
+        //}
 
-        ExecutorService executorService = null;
-        if (threadPoolTaskExecutorMap.size() > 1) {
-            for (Map.Entry<String, ThreadPoolTaskExecutor> entry : threadPoolTaskExecutorMap.entrySet()) {
-                if (entry.getKey().contains("event")) {
-                    executorService = (ExecutorService) entry.getValue().getThreadPoolExecutor();
-                    break;
-                }
-            }
-        }
-        if (Objects.isNull(executorService)) {
-            executorService = (ExecutorService) threadPoolTaskExecutorMap.values().iterator().next().getThreadPoolExecutor();
-        }
-        executorService.submit(futureTask);
+        //ExecutorService executorService = null;
+        //if (threadPoolTaskExecutorMap.size() > 1) {
+        //    for (Map.Entry<String, ThreadPoolTaskExecutor> entry : threadPoolTaskExecutorMap.entrySet()) {
+        //        if (entry.getKey().contains("event")) {
+        //            executorService = (ExecutorService) entry.getValue().getThreadPoolExecutor();
+        //            break;
+        //        }
+        //    }
+        //}
+        //if (Objects.isNull(executorService)) {
+        //    executorService = (ExecutorService) threadPoolTaskExecutorMap.values().iterator().next().getThreadPoolExecutor();
+        //}
+        //executorService.submit(futureTask);
+        EventBus.COMMON_POOL.submit(futureTask);
         return futureTask;
     }
 
-    private static final ThreadPoolExecutor COMMON_POOL = (ThreadPoolExecutor) Executors.newCachedThreadPool();
+    private static final ThreadPoolExecutor COMMON_POOL = (ThreadPoolExecutor) newCachedThreadPool();
+
+    public static ExecutorService newCachedThreadPool() {
+        int corePoolSize = Runtime.getRuntime().availableProcessors();
+        if (corePoolSize < 2) {
+            corePoolSize = 5;
+        }
+        if (corePoolSize > 8) {
+            corePoolSize = 8;
+        }
+        int maxPoolSize =corePoolSize * 2 +1;
+        long keepAliveTime = 60;
+        TimeUnit unit = TimeUnit.SECONDS;
+        int queueSize = maxPoolSize * 2 + 1;
+        LinkedBlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<Runnable>(queueSize);
+        String namePrefix = "event-bus-thread-pool-";
+        RejectedExecutionHandler handler = new ThreadPoolExecutor.CallerRunsPolicy();
+        ThreadFactory threadFactory = new ThreadFactory() {
+            private final AtomicInteger threadNumber = new AtomicInteger(1);
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread t = new Thread(r);
+                t.setName(namePrefix + threadNumber.getAndIncrement());
+                return t;
+            }
+        };
+
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                corePoolSize, maxPoolSize,
+                keepAliveTime, unit, workQueue, threadFactory);
+        executor.setRejectedExecutionHandler(handler);
+
+        return executor;
+    }
 }
