@@ -101,7 +101,7 @@ public class EventBus {
         if (threadPoolTaskExecutorMap.size() > 1) {
             for (Map.Entry<String, ThreadPoolTaskExecutor> entry : threadPoolTaskExecutorMap.entrySet()) {
                 if (entry.getKey().contains("event")) {
-                    executorService = (ExecutorService) entry.getValue();
+                    executorService = (ExecutorService) entry.getValue().getThreadPoolExecutor();
                     break;
                 }
             }
