@@ -3,6 +3,7 @@ package com.bird.eventbus;
 import cn.hutool.core.collection.CollectionUtil;
 import cn.hutool.extra.spring.SpringUtil;
 import com.bird.eventbus.arg.IEventArg;
+import com.bird.eventbus.handler.AbstractHandler;
 import com.bird.eventbus.handler.EventHandleStatusEnum;
 import com.bird.eventbus.handler.IHandler;
 import com.bird.eventbus.registry.IEventRegistry;
@@ -68,12 +69,12 @@ public class EventBus {
             if (Objects.isNull(eventRegistry)) {
                 return EventHandleStatusEnum.FAIL;
             }
-            Set<IHandler> handlers = eventRegistry.getEventArgHandlers(eventArg.getClass());
+            Set<AbstractHandler> handlers = eventRegistry.getEventArgHandlers(eventArg.getClass());
             if (CollectionUtil.isEmpty(handlers)) {
                 return EventHandleStatusEnum.DEADEVENT;
             }
             int successCount = 0;
-            for (IHandler handler : handlers) {
+            for (AbstractHandler handler : handlers) {
                 try {
                     handler.HandleEvent(eventArg);
                     successCount++;

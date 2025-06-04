@@ -1,6 +1,8 @@
 package com.bird.eventbus.registry;
 
 import cn.hutool.core.collection.CollectionUtil;
+import cn.hutool.json.JSON;
+import cn.hutool.json.JSONUtil;
 import com.bird.eventbus.arg.IEventArg;
 import com.bird.eventbus.handler.AbstractHandler;
 import com.bird.eventbus.handler.EventHandler;
@@ -23,19 +25,19 @@ import java.util.concurrent.ConcurrentMap;
 @Slf4j
 @Component
 public class MapEventRegistry implements IEventRegistry, InitializingBean, DisposableBean {
-    private final static ConcurrentMap<Class<?>, Set<IHandler>> EVENT_HANDLER_CONTAINER = new ConcurrentHashMap<>();
+    private final static ConcurrentMap<Class<?>, Set<AbstractHandler>> EVENT_HANDLER_CONTAINER = new ConcurrentHashMap<>();
 
     @Override
-    public void register(Class<?> eventArgClass, IHandler handler) {
+    public void register(Class<?> eventArgClass, AbstractHandler handler) {
         String eventArgClassName = eventArgClass.getName();
         log.info("register eventArg class:{}", eventArgClassName);
-        Set<IHandler> eventHandlers = EVENT_HANDLER_CONTAINER.computeIfAbsent(eventArgClass, p -> new HashSet<>());
+        Set<AbstractHandler> eventHandlers = EVENT_HANDLER_CONTAINER.computeIfAbsent(eventArgClass, p -> new HashSet<>());
         eventHandlers.add(handler);
         EVENT_HANDLER_CONTAINER.put(eventArgClass, eventHandlers);
     }
 
     @Override
-    public Set<IHandler> getEventArgHandlers(Class<?> eventArgClass) {
+    public Set<AbstractHandler> getEventArgHandlers(Class<?> eventArgClass) {
         if (eventArgClass == null || !IEventArg.class.isAssignableFrom(eventArgClass)) {
             return new HashSet<>();
         }
@@ -66,45 +68,56 @@ public class MapEventRegistry implements IEventRegistry, InitializingBean, Dispo
         if (CollectionUtil.isNotEmpty(beans)) {
             for (AbstractHandler handler : beans.values()) {
                 Class<?> clazz = handler.getClass();
-                try {
-                    Method onEventMethod = clazz.getMethod("onEvent", AbstractHandler.class);
-                    Class<?>[] parameterTypes = onEventMethod.getParameterTypes();
-                    if (parameterTypes.length != 1 || !IEventArg.class.isAssignableFrom(parameterTypes[0])) {
-                        continue;
-                    }
-                    Class<?> eventArgClass11 = parameterTypes[0];
-                    log.info("eventArgClass2 class:{},name:{}", eventArgClass11, eventArgClass11.getName());
-                    Class<?> eventArgClass22 = (Class<?>)
-                            (
-                                    (ParameterizedType)
-                                            parameterTypes[0].getGenericSuperclass()
-                            ).getActualTypeArguments()[0];
-                    log.info("eventArgClass2 class:{},name:{}", eventArgClass22, eventArgClass22.getName());
-                    // register(eventArgClass, handler);
-                } catch (Exception e) {
-                    log.error("register subscribe error class:{},exception:{}", clazz, e);
-                }
+                log.info("clazz class:{},name:{}", clazz, clazz.getName());
                 for (Method method : clazz.getDeclaredMethods()) {
+                    log.info("eventArgClass00 method:{},name:{},parameter:{}", method, method.getName(), JSONUtil.toJsonStr(method.getParameterTypes()));
                     EventHandler eventAnnotation = method.getAnnotation(EventHandler.class);
-                    if (eventAnnotation == null) {
-                        continue;
+                    if (eventAnnotation != null) {
+                        Class<?>[] parameterTypes = method.getParameterTypes();
+                        if (parameterTypes.length != 1 || !IEventArg.class.isAssignableFrom(parameterTypes[0])) {
+                            continue;
+                        }
+                        Class<?> eventArgClass00 = parameterTypes[0];
+                        register(eventArgClass00, handler);
+                        log.info("eventArgClass00 class:{},name:{}", eventArgClass00, eventArgClass00.getName());
+                        Class<?> eventArgClass6600 = (Class<?>)
+                                (
+                                        (ParameterizedType)
+                                                parameterTypes[0].getGenericSuperclass()
+                                ).getActualTypeArguments()[0];
+                        log.info("eventArgClass6600 class:{},name:{}", eventArgClass6600, eventArgClass6600.getName());
                     }
-                    Class<?>[] parameterTypes = method.getParameterTypes();
-                    if (parameterTypes.length != 1 || !IEventArg.class.isAssignableFrom(parameterTypes[0])) {
-                        continue;
-                    }
-                    Class<?> eventArgClass = parameterTypes[0];
-                    register(eventArgClass, handler);
-
-                    if("onEvent".equals(method.getName())) {
+                    if ("HandleEvent".equals(method.getName())) {
                         log.info("register subscribe class:{},method:{}", clazz, method.getName());
                         Class<?>[] parameterTypes2 = method.getParameterTypes();
                         if (parameterTypes2.length != 1 || !IEventArg.class.isAssignableFrom(parameterTypes2[0])) {
                             continue;
                         }
-                        Class<?> eventArgClass2 = parameterTypes[0];
-                        register(eventArgClass2, handler);
-                        log.info("eventArgClass2 class:{},name:{}", eventArgClass2, eventArgClass2.getName());
+                        Class<?> eventArgClass11 = parameterTypes2[0];
+                        register(eventArgClass11, handler);
+                        log.info("eventArgClass11 class:{},name:{}", eventArgClass11, eventArgClass11.getName());
+                        Class<?> eventArgClass6611 = (Class<?>)
+                                (
+                                        (ParameterizedType)
+                                                parameterTypes2[0].getGenericSuperclass()
+                                ).getActualTypeArguments()[0];
+                        log.info("eventArgClass6611 class:{},name:{}", eventArgClass6611, eventArgClass6611.getName());
+                    }
+                    if ("onEvent".equals(method.getName())) {
+                        log.info("register subscribe class:{},method:{}", clazz, method.getName());
+                        Class<?>[] parameterTypes3 = method.getParameterTypes();
+                        if (parameterTypes3.length != 1 || !IEventArg.class.isAssignableFrom(parameterTypes3[0])) {
+                            continue;
+                        }
+                        Class<?> eventArgClass22 = parameterTypes3[0];
+                        register(eventArgClass22, handler);
+                        log.info("eventArgClass22 class:{},name:{}", eventArgClass22, eventArgClass22.getName());
+                        Class<?> eventArgClass6622 = (Class<?>)
+                                (
+                                        (ParameterizedType)
+                                                parameterTypes3[0].getGenericSuperclass()
+                                ).getActualTypeArguments()[0];
+                        log.info("eventArgClass6622 class:{},name:{}", eventArgClass6622, eventArgClass6622.getName());
                     }
                 }
             }
