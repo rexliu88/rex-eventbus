@@ -107,7 +107,7 @@ public class EventBus {
             }
         }
         if (Objects.isNull(executorService)) {
-            executorService = (ExecutorService) threadPoolTaskExecutorMap.values().iterator().next();
+            executorService = (ExecutorService) threadPoolTaskExecutorMap.values().iterator().next().getThreadPoolExecutor();
         }
         executorService.submit(futureTask);
         return futureTask;
