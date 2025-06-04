@@ -78,14 +78,10 @@ public class MapEventRegistry implements IEventRegistry, InitializingBean, Dispo
                             continue;
                         }
                         Class<?> eventArgClass00 = parameterTypes[0];
-                        register(eventArgClass00, handler);
+                        if(eventArgClass00 != null && IEventArg.class.isAssignableFrom(eventArgClass00)) {
+                            register(eventArgClass00, handler);
+                        }
                         log.info("eventArgClass00 class:{},name:{}", eventArgClass00, eventArgClass00.getName());
-                        Class<?> eventArgClass6600 = (Class<?>)
-                                (
-                                        (ParameterizedType)
-                                                parameterTypes[0].getGenericSuperclass()
-                                ).getActualTypeArguments()[0];
-                        log.info("eventArgClass6600 class:{},name:{}", eventArgClass6600, eventArgClass6600.getName());
                     }
                     if ("HandleEvent".equals(method.getName())) {
                         log.info("register subscribe class:{},method:{}", clazz, method.getName());
@@ -94,14 +90,10 @@ public class MapEventRegistry implements IEventRegistry, InitializingBean, Dispo
                             continue;
                         }
                         Class<?> eventArgClass11 = parameterTypes2[0];
-                        register(eventArgClass11, handler);
+                        if(eventArgClass11 != null && IEventArg.class.isAssignableFrom(eventArgClass11)) {
+                            register(eventArgClass11, handler);
+                        }
                         log.info("eventArgClass11 class:{},name:{}", eventArgClass11, eventArgClass11.getName());
-                        Class<?> eventArgClass6611 = (Class<?>)
-                                (
-                                        (ParameterizedType)
-                                                parameterTypes2[0].getGenericSuperclass()
-                                ).getActualTypeArguments()[0];
-                        log.info("eventArgClass6611 class:{},name:{}", eventArgClass6611, eventArgClass6611.getName());
                     }
                     if ("onEvent".equals(method.getName())) {
                         log.info("register subscribe class:{},method:{}", clazz, method.getName());
@@ -110,14 +102,10 @@ public class MapEventRegistry implements IEventRegistry, InitializingBean, Dispo
                             continue;
                         }
                         Class<?> eventArgClass22 = parameterTypes3[0];
-                        register(eventArgClass22, handler);
+                        if(eventArgClass22 != null && IEventArg.class.isAssignableFrom(eventArgClass22)) {
+                            register(eventArgClass22, handler);
+                        }
                         log.info("eventArgClass22 class:{},name:{}", eventArgClass22, eventArgClass22.getName());
-                        Class<?> eventArgClass6622 = (Class<?>)
-                                (
-                                        (ParameterizedType)
-                                                parameterTypes3[0].getGenericSuperclass()
-                                ).getActualTypeArguments()[0];
-                        log.info("eventArgClass6622 class:{},name:{}", eventArgClass6622, eventArgClass6622.getName());
                     }
                 }
             }
