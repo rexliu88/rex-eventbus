@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Slf4j
 @NoArgsConstructor
 public class EventBus {
-    public static void push(IEventArg eventArg) {
+    public static <E extends IEventArg> void push(E eventArg) {
         log.info("事件发送开始。");
         FutureTask<EventHandleStatusEnum> task = asyncPush(eventArg);
         EventHandleStatusEnum eventHandleStatusEnum = EventHandleStatusEnum.FAIL;
@@ -50,12 +50,12 @@ public class EventBus {
         log.info("事件发送结束！");
     }
 
-    public static FutureTask asyncPush(IEventArg eventArg) {
+    public static <E extends IEventArg> FutureTask asyncPush(E eventArg) {
         FutureTask<EventHandleStatusEnum> task = getFutureTask(eventArg);
         return task;
     }
 
-    private static FutureTask<EventHandleStatusEnum> getFutureTask(IEventArg eventArg) {
+    private static <E extends IEventArg> FutureTask<EventHandleStatusEnum> getFutureTask(E eventArg) {
         if (Objects.isNull(eventArg) || !eventArg.isLocal()) {
             log.error("事件发送失败:事件参数为空，或isLocal为false");
             return null;
@@ -69,12 +69,12 @@ public class EventBus {
             if (Objects.isNull(eventRegistry)) {
                 return EventHandleStatusEnum.FAIL;
             }
-            Set<AbstractHandler> handlers = eventRegistry.getEventArgHandlers(eventArg.getClass());
+            Set<IHandler> handlers = eventRegistry.getEventArgHandlers(eventArg.getClass());
             if (CollectionUtil.isEmpty(handlers)) {
                 return EventHandleStatusEnum.DEADEVENT;
             }
             int successCount = 0;
-            for (AbstractHandler handler : handlers) {
+            for (IHandler handler : handlers) {
                 try {
                     handler.HandleEvent(eventArg);
                     successCount++;

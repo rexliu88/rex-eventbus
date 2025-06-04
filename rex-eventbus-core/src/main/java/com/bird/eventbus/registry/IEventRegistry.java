@@ -4,9 +4,9 @@ import com.bird.eventbus.handler.AbstractHandler;
 import com.bird.eventbus.handler.IHandler;
 import java.util.Set;
 public interface IEventRegistry {
-    void register(Class<?> eventArgClass, AbstractHandler handler);
+    void register(Class<?> eventArgClass, IHandler handler);
 
-    Set<AbstractHandler> getEventArgHandlers(Class<?> eventArgClass);
+    Set<IHandler> getEventArgHandlers(Class<?> eventArgClass);
 
     Class<?>[] getAllEventArgClass();
 }
