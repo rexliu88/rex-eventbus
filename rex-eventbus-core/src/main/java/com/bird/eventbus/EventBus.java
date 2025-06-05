@@ -16,65 +16,93 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @NoArgsConstructor
 public class EventBus {
+    private static final ThreadPoolExecutor COMMON_POOL = (ThreadPoolExecutor) Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r);
+        t.setName("eventbus-ddd-" + t.getId());
+        t.setDaemon(true); // 避免阻塞JVM退出
+        return t;
+    });
+    private static volatile ExecutorService cachedExecutorService;
+    private static volatile IEventRegistry cachedEventRegistry;
+
     public static <E extends IEventArg> void push(E eventArg) {
-        log.info("事件发送开始。");
-        FutureTask<EventHandleStatusEnum> task = asyncPush(eventArg);
-        log.info("事件处理开始。");
-        EventHandleStatusEnum eventHandleStatusEnum = EventHandleStatusEnum.FAIL;
-        if (task == null) {
-            log.error("事件处理失败:执行任务为空");
+        if(eventArg == null || !eventArg.isLocal()) {
+            log.error("事件发送失败:事件参数为空，或isLocal为false");
             return;
         }
+        final String eventJson = JSONUtil.toJsonStr(eventArg);
+        final String eventClassName = eventArg.getClass().getName();
+
+        FutureTask<EventHandleStatusEnum> task = asyncPush(eventArg,eventJson,eventClassName);
+
+        log.debug("事件处理开始：参数类：{}，参数值：{}", eventClassName, eventJson);
+
+        if (task == null) {
+            log.error("事件处理失败: 执行任务为空：{}, 参数值：{}", eventClassName, eventJson);
+            return;
+        }
+
+        // 异步执行，不再阻塞主线程
+        log.info("事件已异步提交：{}", eventClassName);
+
+        EventHandleStatusEnum result;
         try {
-            eventHandleStatusEnum = task.get();
-        } catch (InterruptedException e) {
-            log.error("事件处理失败", e);
-        } catch (ExecutionException e) {
-            log.error("事件消费失败1", e);
+            // 设置合理超时时间，防止永久阻塞
+            result = task.get(30, TimeUnit.SECONDS);
+        } catch (ExecutionException | InterruptedException e) {
+            log.error("事件消费失败：抛出异常：", e);
+            result = EventHandleStatusEnum.FAIL;
+        } catch (TimeoutException e) {
+            result = EventHandleStatusEnum.TIMEOUT;
         }
-        if (eventHandleStatusEnum == EventHandleStatusEnum.FAIL) {
-            log.error("事件处理失败");
+
+        switch (result) {
+            case SUCCESS:
+                log.info("事件处理成功:执行返回成功：参数类：{}，参数值：{}", eventClassName, eventJson);
+                break;
+            case FAIL:
+                log.error("事件处理失败:执行返回失败：参数类：{}，参数值：{}", eventClassName, eventJson);
+                break;
+            case DEADEVENT:
+                log.warn("事件处理失败:死信：参数类：{}，参数值：{}", eventClassName, eventJson);
+                break;
+            case PARTIAL_SUCCESS:
+                log.warn("事件处理失败:部分成功：参数类：{}，参数值：{}", eventClassName, eventJson);
+                break;
+            case TIMEOUT:
+                log.warn("事件处理失败:超时：参数类：{}，参数值：{}", eventClassName, eventJson);
+                break;
         }
-        if (eventHandleStatusEnum == EventHandleStatusEnum.DEADEVENT) {
-            log.error("事件处理失败:死信，无处理器");
-        }
-        if (eventHandleStatusEnum == EventHandleStatusEnum.PARTIAL_SUCCESS) {
-            log.error("事件处理失败:部分成功");
-        }
-        if (eventHandleStatusEnum == EventHandleStatusEnum.TIMEOUT) {
-            log.error("事件处理失败:超时");//目前无
-        }
-        log.info("事件发送结束！");
+        log.info("事件处理结束：参数类：{}，参数值：{}", eventClassName, eventJson);
     }
 
-    public static <E extends IEventArg> FutureTask<EventHandleStatusEnum> asyncPush(E eventArg) {
-        FutureTask<EventHandleStatusEnum> task = getFutureTask(eventArg);
-        return task;
+    public static <E extends IEventArg> FutureTask<EventHandleStatusEnum> asyncPush(E eventArg,final String eventJson,final String eventClassName) {
+        return getFutureTask(eventArg,eventJson,eventClassName);
     }
 
-    private static <E extends IEventArg> FutureTask<EventHandleStatusEnum> getFutureTask(E eventArg) {
+    private static <E extends IEventArg> FutureTask<EventHandleStatusEnum> getFutureTask(E eventArg,final String eventJson,final String eventClassName) {
         if (Objects.isNull(eventArg) || !eventArg.isLocal()) {
             log.error("事件发送失败:事件参数为空，或isLocal为false");
             return null;
         }
+        log.info("事件发送开始：{}", eventJson);
         Callable<EventHandleStatusEnum> callable = () -> {
-            if (Objects.isNull(eventArg)|| !eventArg.isLocal()) {
+            if (Objects.isNull(eventArg) || !eventArg.isLocal()) {
                 log.error("事件发送失败:事件参数为空，或isLocal为false");
                 return EventHandleStatusEnum.FAIL;
             }
-            IEventRegistry eventRegistry = SpringUtil.getBean(IEventRegistry.class);
+            IEventRegistry eventRegistry = getCachedEventRegistry();
             if (Objects.isNull(eventRegistry)) {
-                log.error("事件注册器:为空。" );
+                log.error("事件注册器:为空。参数类：{}，参数值：{}",eventClassName, eventJson);
                 return EventHandleStatusEnum.FAIL;
             }
             Set<IHandler> handlers = eventRegistry.getEventArgHandlers(eventArg.getClass());
             if (CollectionUtil.isEmpty(handlers)) {
-                log.error("事件处理失败:死信，无处理器,参数类：{}，参数值：{}" , eventArg.getClass().getName(), JSONUtil.toJsonStr(eventArg));
+                log.info("事件处理失败:死信:无处理器,参数类：{}，参数值：{}",eventClassName, eventJson);
                 return EventHandleStatusEnum.DEADEVENT;
             }
             int successCount = 0;
@@ -82,80 +110,99 @@ public class EventBus {
                 try {
                     handler.HandleEvent(eventArg);
                     successCount++;
-                    log.info("事件处理器[{}]处理成功,参数类：{}，参数值：{}" , eventArg.getClass().getName(), JSONUtil.toJsonStr(eventArg));
+                    log.info("事件处理器[{}]处理成功：参数类：{}，参数值：{}",eventClassName, eventJson);
                 } catch (Exception e) {
-                    log.error("事件处理器[{}]处理失败", handler.getClass().getName(), e);
+                    log.error("事件处理器[{}]处理失败：参数类：{}，参数值：{}",e.getMessage(),eventClassName, eventJson);
                 }
             }
             if (successCount == handlers.size()) {
-                log.info("事件处理:全部成功,参数类：{}，参数值：{}" , eventArg.getClass().getName(), JSONUtil.toJsonStr(eventArg));
+                log.info("事件处理:全部成功,参数类：{}，参数值：{}",eventClassName, eventJson);
                 return EventHandleStatusEnum.SUCCESS;
             } else if (successCount > 0) {
-                log.warn("事件处理:部分成功,参数类：{}，参数值：{}" , eventArg.getClass().getName(), JSONUtil.toJsonStr(eventArg));
+                log.warn("事件处理:部分成功,参数类：{}，参数值：{}",eventClassName, eventJson);
                 return EventHandleStatusEnum.PARTIAL_SUCCESS;
             } else {
-                log.error("事件处理:全部失败,参数类：{}，参数值：{}" , eventArg.getClass().getName(), JSONUtil.toJsonStr(eventArg));
+                log.error("事件处理:全部失败,参数类：{}，参数值：{}",eventClassName, eventJson);
                 return EventHandleStatusEnum.FAIL;
             }
         };
-
         FutureTask<EventHandleStatusEnum> futureTask = new FutureTask<>(callable);
+        ExecutorService executorService = getCachedExecutorService();
 
-        Map<String, ThreadPoolTaskExecutor> threadPoolTaskExecutorMap = SpringUtil.getBeansOfType(ThreadPoolTaskExecutor.class);
-        if (CollectionUtil.isEmpty(threadPoolTaskExecutorMap)) {
-            EventBus.COMMON_POOL.submit(futureTask);
-            return futureTask;
-        }
-
-        ExecutorService executorService = null;
-        if (threadPoolTaskExecutorMap.size() > 1) {
-            for (Map.Entry<String, ThreadPoolTaskExecutor> entry : threadPoolTaskExecutorMap.entrySet()) {
-                if (entry.getKey().contains("event")) {
-                    executorService = (ExecutorService) entry.getValue().getThreadPoolExecutor();
-                    break;
-                }
+        try {
+            executorService.submit(futureTask);
+        } catch (RejectedExecutionException e) {
+            log.error("线程池拒绝任务提交", e);
+            if(cachedExecutorService != null && cachedExecutorService != COMMON_POOL) {
+                COMMON_POOL.submit(futureTask);
             }
         }
-        if (Objects.isNull(executorService)) {
-            executorService = (ExecutorService) threadPoolTaskExecutorMap.values().iterator().next().getThreadPoolExecutor();
-        }
-        executorService.submit(futureTask);
-        //EventBus.COMMON_POOL.submit(futureTask);
+        log.info("事件发送结束：{}", eventJson);
         return futureTask;
     }
 
-    private static final ThreadPoolExecutor COMMON_POOL = (ThreadPoolExecutor) Executors.newCachedThreadPool();
-
-    public static ExecutorService newCachedThreadPool() {
-        int corePoolSize = Runtime.getRuntime().availableProcessors();
-        if (corePoolSize < 2) {
-            corePoolSize = 5;
+    private static IEventRegistry getCachedEventRegistry() {
+        if (cachedEventRegistry != null) {
+            return cachedEventRegistry;
         }
-        if (corePoolSize > 8) {
-            corePoolSize = 8;
-        }
-        int maxPoolSize =corePoolSize * 2 +1;
-        long keepAliveTime = 60;
-        TimeUnit unit = TimeUnit.SECONDS;
-        int queueSize = maxPoolSize * 2 + 1;
-        LinkedBlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<Runnable>(queueSize);
-        String namePrefix = "event-bus-thread-pool-";
-        RejectedExecutionHandler handler = new ThreadPoolExecutor.CallerRunsPolicy();
-        ThreadFactory threadFactory = new ThreadFactory() {
-            private final AtomicInteger threadNumber = new AtomicInteger(1);
-            @Override
-            public Thread newThread(Runnable r) {
-                Thread t = new Thread(r);
-                t.setName(namePrefix + threadNumber.getAndIncrement());
-                return t;
+        synchronized (EventBus.class) {
+            if (cachedEventRegistry != null) {
+                return cachedEventRegistry;
             }
-        };
+            IEventRegistry selected = null;
+            Map<String, IEventRegistry> registryMap = SpringUtil.getBeansOfType(IEventRegistry.class);
+            if (CollectionUtil.isNotEmpty(registryMap)) {
+                selected = registryMap.values().iterator().next();
+            }
+            if (Objects.isNull(selected)) {
+                log.error("事件注册器:为空。");
+            }
+            cachedEventRegistry = selected;
+            return cachedEventRegistry;
+        }
+    }
 
-        ThreadPoolExecutor executor = new ThreadPoolExecutor(
-                corePoolSize, maxPoolSize,
-                keepAliveTime, unit, workQueue, threadFactory);
-        executor.setRejectedExecutionHandler(handler);
+    private static ExecutorService getCachedExecutorService() {
+        if (cachedExecutorService != null) {
+            return cachedExecutorService;
+        }
 
-        return executor;
+        synchronized (EventBus.class) {
+            if (cachedExecutorService != null) {
+                return cachedExecutorService;
+            }
+
+            ExecutorService selected = null;
+
+            Map<String, ThreadPoolTaskExecutor> threadPoolTaskExecutorMap = SpringUtil.getBeansOfType(ThreadPoolTaskExecutor.class);
+            if (CollectionUtil.isNotEmpty(threadPoolTaskExecutorMap)) {
+                for (Map.Entry<String, ThreadPoolTaskExecutor> entry : threadPoolTaskExecutorMap.entrySet()) {
+                    if (entry.getKey().contains("event") && entry.getValue().getCorePoolSize() > 50) {
+                        selected = entry.getValue().getThreadPoolExecutor();
+                        break;
+                    }
+                }
+                if (selected == null) {
+                    ThreadPoolTaskExecutor defaultExecutor = threadPoolTaskExecutorMap.values().iterator().next();
+                    if (defaultExecutor.getCorePoolSize() > 50) {
+                        selected = defaultExecutor.getThreadPoolExecutor();
+                    }
+                }
+            }
+
+            if(selected == null) {
+                selected = COMMON_POOL;
+            }
+            cachedExecutorService = selected;
+            return cachedExecutorService;
+        }
+    }
+    public static void shutdown() {
+        if (cachedExecutorService != null) {
+            cachedExecutorService.shutdownNow();
+        }
+        if (!COMMON_POOL.isShutdown()) {
+            COMMON_POOL.shutdownNow();
+        }
     }
 }

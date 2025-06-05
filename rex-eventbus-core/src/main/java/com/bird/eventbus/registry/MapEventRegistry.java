@@ -1,7 +1,6 @@
 package com.bird.eventbus.registry;
 
 import cn.hutool.core.collection.CollectionUtil;
-import cn.hutool.json.JSON;
 import cn.hutool.json.JSONUtil;
 import com.bird.eventbus.arg.IEventArg;
 import com.bird.eventbus.handler.IHandler;
