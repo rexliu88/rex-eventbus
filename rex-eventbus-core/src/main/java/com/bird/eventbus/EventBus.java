@@ -101,26 +101,26 @@ public class EventBus {
 
         FutureTask<EventHandleStatusEnum> futureTask = new FutureTask<>(callable);
 
-        //Map<String, ThreadPoolTaskExecutor> threadPoolTaskExecutorMap = SpringUtil.getBeansOfType(ThreadPoolTaskExecutor.class);
-        //if (CollectionUtil.isEmpty(threadPoolTaskExecutorMap)) {
-        //    EventBus.COMMON_POOL.submit(futureTask);
-        //    return futureTask;
-        //}
+        Map<String, ThreadPoolTaskExecutor> threadPoolTaskExecutorMap = SpringUtil.getBeansOfType(ThreadPoolTaskExecutor.class);
+        if (CollectionUtil.isEmpty(threadPoolTaskExecutorMap)) {
+            EventBus.COMMON_POOL.submit(futureTask);
+            return futureTask;
+        }
 
-        //ExecutorService executorService = null;
-        //if (threadPoolTaskExecutorMap.size() > 1) {
-        //    for (Map.Entry<String, ThreadPoolTaskExecutor> entry : threadPoolTaskExecutorMap.entrySet()) {
-        //        if (entry.getKey().contains("event")) {
-        //            executorService = (ExecutorService) entry.getValue().getThreadPoolExecutor();
-        //            break;
-        //        }
-        //    }
-        //}
-        //if (Objects.isNull(executorService)) {
-        //    executorService = (ExecutorService) threadPoolTaskExecutorMap.values().iterator().next().getThreadPoolExecutor();
-        //}
-        //executorService.submit(futureTask);
-        EventBus.COMMON_POOL.submit(futureTask);
+        ExecutorService executorService = null;
+        if (threadPoolTaskExecutorMap.size() > 1) {
+            for (Map.Entry<String, ThreadPoolTaskExecutor> entry : threadPoolTaskExecutorMap.entrySet()) {
+                if (entry.getKey().contains("event")) {
+                    executorService = (ExecutorService) entry.getValue().getThreadPoolExecutor();
+                    break;
+                }
+            }
+        }
+        if (Objects.isNull(executorService)) {
+            executorService = (ExecutorService) threadPoolTaskExecutorMap.values().iterator().next().getThreadPoolExecutor();
+        }
+        executorService.submit(futureTask);
+        //EventBus.COMMON_POOL.submit(futureTask);
         return futureTask;
     }
 
