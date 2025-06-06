@@ -174,21 +174,23 @@ public class EventBus {
 
             ExecutorService selected = null;
 
-//            Map<String, ThreadPoolTaskExecutor> threadPoolTaskExecutorMap = SpringUtil.getBeansOfType(ThreadPoolTaskExecutor.class);
-//            if (CollectionUtil.isNotEmpty(threadPoolTaskExecutorMap)) {
-//                for (Map.Entry<String, ThreadPoolTaskExecutor> entry : threadPoolTaskExecutorMap.entrySet()) {
-//                    if (entry.getKey().contains("event") && entry.getValue().getCorePoolSize() > 50) {
-//                        selected = entry.getValue().getThreadPoolExecutor();
-//                        break;
-//                    }
-//                }
-//                if (selected == null) {
-//                    ThreadPoolTaskExecutor defaultExecutor = threadPoolTaskExecutorMap.values().iterator().next();
-//                    if (defaultExecutor.getCorePoolSize() > 50) {
-//                        selected = defaultExecutor.getThreadPoolExecutor();
-//                    }
-//                }
-//            }
+            Map<String, ThreadPoolTaskExecutor> threadPoolTaskExecutorMap = SpringUtil.getBeansOfType(ThreadPoolTaskExecutor.class);
+            if (CollectionUtil.isNotEmpty(threadPoolTaskExecutorMap)) {
+                for (Map.Entry<String, ThreadPoolTaskExecutor> entry : threadPoolTaskExecutorMap.entrySet()) {
+                    ThreadPoolTaskExecutor defaultExecutor = entry.getValue();
+                    defaultExecutor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+                    if (entry.getKey().contains("event") && defaultExecutor.getCorePoolSize() > 50) {
+                        selected = entry.getValue().getThreadPoolExecutor();
+                        break;
+                    }
+                }
+                if (selected == null) {
+                    ThreadPoolTaskExecutor defaultExecutor = threadPoolTaskExecutorMap.values().iterator().next();
+                    if (defaultExecutor.getCorePoolSize() > 50) {
+                        selected = defaultExecutor.getThreadPoolExecutor();
+                    }
+                }
+            }
 
             if(selected == null) {
                 selected = COMMON_POOL;
