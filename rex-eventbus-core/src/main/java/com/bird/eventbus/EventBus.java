@@ -85,6 +85,17 @@ public class EventBus {
         log.info("事件处理结束：参数类：{}，参数值：{}", eventClassName, eventJson);
     }
 
+    public static <E extends IEventArg> CompletableFuture<EventHandleStatusEnum> asyncPush(E eventArg) {
+        if(eventArg == null || !eventArg.isLocal()) {
+            log.error("事件发送失败:事件参数为空，或isLocal为false");
+            return CompletableFuture.completedFuture(EventHandleStatusEnum.FAIL);
+        }
+        final String eventJson = JSONUtil.toJsonStr(eventArg);
+        final String eventClassName = eventArg.getClass().getName();
+        CompletableFuture<EventHandleStatusEnum> completableFuture = asyncPush(eventArg, eventJson, eventClassName);
+        return completableFuture;
+    }
+
     public static <E extends IEventArg> CompletableFuture<EventHandleStatusEnum> asyncPush(E eventArg,final String eventJson,final String eventClassName) {
         CompletableFuture<EventHandleStatusEnum> completableFuture = getCompletableFuture(eventArg,eventJson,eventClassName);
         return completableFuture;
