@@ -28,6 +28,7 @@ public class EventBus {
     private static volatile ExecutorService cachedExecutorService;
     private static volatile IEventRegistry cachedEventRegistry;
     private static final Object eventBusLock = new Object();
+    private static final Object eventBusLock2 = new Object();
 
     public static <E extends IEventArg> void push(E eventArg) {
         if(eventArg == null || !eventArg.isLocal()) {
@@ -170,7 +171,7 @@ public class EventBus {
         if (cachedEventRegistry != null) {
             return cachedEventRegistry;
         }
-        synchronized (eventBusLock) {
+        synchronized (eventBusLock2) {
             if (cachedEventRegistry != null) {
                 return cachedEventRegistry;
             }
