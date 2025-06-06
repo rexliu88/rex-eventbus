@@ -204,14 +204,14 @@ public class EventBus {
                 for (Map.Entry<String, ThreadPoolTaskExecutor> entry : threadPoolTaskExecutorMap.entrySet()) {
                     ThreadPoolTaskExecutor defaultExecutor = entry.getValue();
                     defaultExecutor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-                    if (entry.getKey().contains("event") && defaultExecutor.getCorePoolSize() >= 50 && defaultExecutor.getActiveCount() >= 50) {
+                    if (entry.getKey().contains("event") && defaultExecutor.getCorePoolSize() > 50) {
                         selected = entry.getValue().getThreadPoolExecutor();
                         break;
                     }
                 }
                 if (selected == null) {
                     ThreadPoolTaskExecutor defaultExecutor = threadPoolTaskExecutorMap.values().iterator().next();
-                    if (defaultExecutor.getCorePoolSize() >= 50 && defaultExecutor.getActiveCount() >= 50) {
+                    if (defaultExecutor.getCorePoolSize() > 50) {
                         selected = defaultExecutor.getThreadPoolExecutor();
                     }
                 }
